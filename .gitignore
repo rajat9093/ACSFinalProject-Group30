@@ -7,6 +7,9 @@
 *.obj
 *.elf
 
+#Terraform Files
+*.terraform
+
 # Linker output
 *.ilk
 *.map

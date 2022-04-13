@@ -17,7 +17,7 @@ data "aws_ami" "latest_amazon_linux" {
 data "terraform_remote_state" "network" { // This is to use Outputs from Remote State
   backend = "s3"
   config = {
-    bucket = "group30-${var.env}-bucket"  // Bucket from where to GET Terraform State
+    bucket = "group30-${var.env}-bucket1"  // Bucket from where to GET Terraform State
     key    = "${var.env}-network/terraform.tfstate" // Object name in the bucket to GET Terraform State
     region = "us-east-1"                            // Region where bucket created
   }
@@ -39,6 +39,111 @@ locals {
 # Retrieve global variables from the Terraform module
 module "globalvars" {
   source = "../globalvars"
+}
+
+# Create Target group30
+resource "aws_lb_target_group" "tg" {
+  name     = "tg"
+  port     = 80
+  protocol = "HTTP"
+# target_type = "alb"
+  vpc_id   = data.terraform_remote_state.network.outputs.vpc_id
+}
+
+# Create application load balancer
+resource "aws_lb" "lb" {
+  name               = "lb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.lb_sg.id]
+  subnets            = [data.terraform_remote_state.network.outputs.public_subnet_ids[0], data.terraform_remote_state.network.outputs.public_subnet_ids[1], data.terraform_remote_state.network.outputs.public_subnet_ids[2]]
+
+  enable_deletion_protection = false
+
+  tags = merge(local.default_tags,
+    {
+      "Name" = "${local.name_prefix}-lb"
+    }
+  )
+}
+
+# Create load balancer listener
+resource "aws_lb_listener" "listener"{
+  load_balancer_arn = aws_lb.lb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.tg.arn
+  }
+}
+
+# Security Group for Application Load balancer
+resource "aws_security_group" "lb_sg" {
+  name        = "lb_sg"
+  description = "Allow HTTP traffic"
+  vpc_id      = data.terraform_remote_state.network.outputs.vpc_id
+
+  ingress {
+    description      = "HTTP from everywhere"
+    from_port        = 80
+    to_port          = 80
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  tags = merge(local.default_tags,
+    {
+      "Name" = "${local.name_prefix}-lb-sg"
+    }
+  )
+}
+
+
+resource "aws_launch_template" "launch_template" {
+  name_prefix   = "launch_template"
+  image_id      = data.aws_ami.latest_amazon_linux.id
+  instance_type = var.instance_type
+  key_name = aws_key_pair.linux_key.key_name
+  vpc_security_group_ids = [aws_security_group.web_sg.id]
+  #subnet_id = data.terraform_remote_state.network.outputs.private_subnet_ids[count.index]
+  user_data = filebase64("${path.module}/install_httpd.sh.tpl"
+  # {
+  #   env    = upper(var.env),
+  #   prefix = upper(local.prefix)
+  # }
+  )
+}
+
+resource "aws_autoscaling_group" "asg" {
+  vpc_zone_identifier = [data.terraform_remote_state.network.outputs.private_subnet_ids[0], data.terraform_remote_state.network.outputs.private_subnet_ids[1], data.terraform_remote_state.network.outputs.private_subnet_ids[2]]
+  #target_group_arns =  aws_lb_target_group.tg.id
+  desired_capacity   = var.desired_capacity
+  max_size           = var.max_size
+  min_size           = var.min_size
+  health_check_grace_period = 300
+  health_check_type         = "ELB"
+
+  launch_template {
+    id      = aws_launch_template.launch_template.id
+    version = "$Latest"
+  }
+}
+
+# Create a new ALB Target Group attachment
+resource "aws_autoscaling_attachment" "asg_attachment" {
+  autoscaling_group_name = aws_autoscaling_group.asg.id
+  lb_target_group_arn    = aws_lb_target_group.tg.arn
 }
 
 # Webserver Instance-1
@@ -68,27 +173,6 @@ resource "aws_instance" "webserver" {
   tags = merge(local.default_tags,
     {
       "Name" = "${local.name_prefix}-webserver-${count.index}"
-    }
-  )
-}
-
-# Attach EBS volume
-resource "aws_volume_attachment" "ebs_att" {
-  count       = var.env == "prod" ? 1 : 0
-  device_name = "/dev/sdh"
-  volume_id   = aws_ebs_volume.web_ebs[count.index].id
-  instance_id = aws_instance.webserver[count.index].id
-}
-
-# Create another EBS volume
-resource "aws_ebs_volume" "web_ebs" {
-  count             = var.env == "prod" ? 1 : 0
-  availability_zone = data.aws_availability_zones.available.names[0]
-  size              = 40
-
-  tags = merge(local.default_tags,
-    {
-      "Name" = "${local.name_prefix}-EBS"
     }
   )
 }
@@ -149,7 +233,7 @@ resource "aws_security_group" "web_sg" {
 resource "aws_instance" "bastion" {
   ami                         = data.aws_ami.latest_amazon_linux.id
   instance_type               = var.instance_type
- key_name                     = aws_key_pair.linux_key.key_name
+  key_name                     = aws_key_pair.linux_key.key_name
   subnet_id                   = data.terraform_remote_state.network.outputs.public_subnet_ids[0]
   security_groups             = [aws_security_group.bastion_sg.id]
   associate_public_ip_address = false

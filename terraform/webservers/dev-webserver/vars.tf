@@ -14,14 +14,14 @@ variable "env" {
 
 #Private Ip of the Admin
 variable "my_private_ip" {
-  default     = "172.31.11.211"
+  default     = "172.31.55.33"
   type        = string
   description = "Private IP of the Admin"
 }
 
 #Public Ip of the Admin
 variable "my_public_ip" {
-  default     = "44.200.61.198"
+  default     = "100.26.215.242"
   type        = string
   description = "Public IP of the Admin"
 }
@@ -31,6 +31,18 @@ variable "num_linux_vm" {
   default     = 2
   type        = number
   description = "Number of VM's to be provision"
+}
+
+variable "min_size" {
+  default = 2
+}
+
+variable "max_size" {
+  default = 4
+}
+
+variable "desired_capacity" {
+  default = 2
 }
 
 variable "path_to_linux_key" {

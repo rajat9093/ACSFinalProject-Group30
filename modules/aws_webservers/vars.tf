@@ -41,6 +41,22 @@ variable "num_linux_vm" {
   description = "Number of VM's to be provision"
 }
 
+variable "min_size" {
+  type        = number
+  description = "Minimum size of VMs to add in ASG"
+}
+
+variable "max_size" {
+  type        = number
+  description = "Maximum size of VMs to add in ASG"
+}
+
+variable "desired_capacity" {
+  type        = number
+  description = "Desired of VMs to add in ASG"
+}
+
+
 variable "path_to_linux_key" {
   description = "Path to the public key to use in every VMs provisioning"
   type        = string

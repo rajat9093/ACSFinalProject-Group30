@@ -1,7 +1,7 @@
 # Default tags
 output "default_tags" {
   value = {
-    "App"   = "Two-Teir Application"
+    "App"   = "Two-Tier Application"
     "Project" = "Final ACS Project"
   }
 }

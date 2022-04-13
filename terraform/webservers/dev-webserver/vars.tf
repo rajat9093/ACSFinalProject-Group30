@@ -21,17 +21,17 @@ variable "my_private_ip" {
 
 #Public Ip of the Admin
 variable "my_public_ip" {
-  default     = "100.26.215.242"
+  default     = "100.25.3.82"
   type        = string
   description = "Public IP of the Admin"
 }
 
 
-variable "num_linux_vm" {
-  default     = 2
-  type        = number
-  description = "Number of VM's to be provision"
-}
+#variable "num_linux_vm" {
+#  default     = 2
+#  type        = number
+#  description = "Number of VM's to be provision"
+#}
 
 variable "min_size" {
   default = 2

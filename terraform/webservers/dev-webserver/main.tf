@@ -6,7 +6,7 @@ module "webservers-dev" {
   instance_type     = var.instance_type
   my_private_ip     = var.my_private_ip
   my_public_ip      = var.my_public_ip
-  num_linux_vm      = var.num_linux_vm
+  #num_linux_vm      = var.num_linux_vm
   path_to_linux_key = var.path_to_linux_key
   desired_capacity = var.desired_capacity
   max_size = var.max_size

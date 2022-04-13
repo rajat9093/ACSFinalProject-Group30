@@ -36,10 +36,10 @@ variable "my_public_ip" {
 }
 
 
-variable "num_linux_vm" {
-  type        = number
-  description = "Number of VM's to be provision"
-}
+#variable "num_linux_vm" {
+#  type        = number
+#  description = "Number of VM's to be provision"
+#}
 
 variable "min_size" {
   type        = number

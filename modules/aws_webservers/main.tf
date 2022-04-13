@@ -23,7 +23,6 @@ data "terraform_remote_state" "network" { // This is to use Outputs from Remote 
   }
 }
 
-
 # Data source for availability zones in us-east-1
 data "aws_availability_zones" "available" {
   state = "available"
@@ -41,13 +40,18 @@ module "globalvars" {
   source = "../globalvars"
 }
 
-# Create Target group30
+# Create Target group
 resource "aws_lb_target_group" "tg" {
   name     = "tg"
   port     = 80
   protocol = "HTTP"
-# target_type = "alb"
   vpc_id   = data.terraform_remote_state.network.outputs.vpc_id
+  
+  tags = merge(local.default_tags,
+    {
+      "Name" = "${local.name_prefix}-targetgroup"
+    }
+  )
 }
 
 # Create application load balancer
@@ -111,21 +115,23 @@ resource "aws_security_group" "lb_sg" {
 
 
 resource "aws_launch_template" "launch_template" {
-  name_prefix   = "launch_template"
+  name   = "launch_template"
   image_id      = data.aws_ami.latest_amazon_linux.id
   instance_type = var.instance_type
   key_name = aws_key_pair.linux_key.key_name
   vpc_security_group_ids = [aws_security_group.web_sg.id]
   #subnet_id = data.terraform_remote_state.network.outputs.private_subnet_ids[count.index]
   user_data = filebase64("${path.module}/install_httpd.sh.tpl"
-  # {
-  #   env    = upper(var.env),
-  #   prefix = upper(local.prefix)
-  # }
+  )
+  tags = merge(local.default_tags,
+    {
+      "Name" = "${local.name_prefix}-launch-template"
+    }
   )
 }
 
 resource "aws_autoscaling_group" "asg" {
+  name = "asg"
   vpc_zone_identifier = [data.terraform_remote_state.network.outputs.private_subnet_ids[0], data.terraform_remote_state.network.outputs.private_subnet_ids[1], data.terraform_remote_state.network.outputs.private_subnet_ids[2]]
   #target_group_arns =  aws_lb_target_group.tg.id
   desired_capacity   = var.desired_capacity
@@ -138,6 +144,13 @@ resource "aws_autoscaling_group" "asg" {
     id      = aws_launch_template.launch_template.id
     version = "$Latest"
   }
+  
+  tag {
+    key                 = "Name"
+    value               = "${local.name_prefix}-asg-instance"
+    propagate_at_launch = true
+  }
+  
 }
 
 # Create a new ALB Target Group attachment
@@ -146,36 +159,6 @@ resource "aws_autoscaling_attachment" "asg_attachment" {
   lb_target_group_arn    = aws_lb_target_group.tg.arn
 }
 
-# Webserver Instance-1
-resource "aws_instance" "webserver" {
-  count                       = var.num_linux_vm
-  ami                         = data.aws_ami.latest_amazon_linux.id
-  instance_type               = var.instance_type
-  key_name                    = aws_key_pair.linux_key.key_name
-  subnet_id                   = data.terraform_remote_state.network.outputs.private_subnet_ids[count.index]
-  security_groups             = [aws_security_group.web_sg.id]
-  associate_public_ip_address = true
-  user_data = templatefile("${path.module}/install_httpd.sh.tpl",
-    {
-      env    = upper(var.env),
-      prefix = upper(local.prefix)
-    }
-  )
-
-  root_block_device {
-    encrypted = var.env == "prod" ? true : false
-  }
-
-  lifecycle {
-    create_before_destroy = true
-  }
-
-  tags = merge(local.default_tags,
-    {
-      "Name" = "${local.name_prefix}-webserver-${count.index}"
-    }
-  )
-}
 
 # Provision SSH key pair for Ubuntu and AmazonLinux VMs
 resource "aws_key_pair" "linux_key" {

@@ -26,11 +26,16 @@ variable "my_public_ip" {
   description = "Public IP of the Admin"
 }
 
+variable "min_size" {
+  default = 3
+}
 
-variable "num_linux_vm" {
-  default     = 3
-  type        = number
-  description = "Number of VM's to be provision"
+variable "max_size" {
+  default = 4
+}
+
+variable "desired_capacity" {
+  default = 3
 }
 
 variable "path_to_linux_key" {

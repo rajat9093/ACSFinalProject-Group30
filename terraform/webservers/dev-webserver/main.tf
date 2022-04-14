@@ -7,9 +7,9 @@ module "webservers-dev" {
   my_private_ip     = var.my_private_ip
   my_public_ip      = var.my_public_ip
   path_to_linux_key = var.path_to_linux_key
-  desired_capacity = var.desired_capacity
-  max_size = var.max_size
-  min_size = var.min_size
+  desired_capacity  = var.desired_capacity
+  max_size          = var.max_size
+  min_size          = var.min_size
   prefix            = module.globalvars.prefix
   default_tags      = module.globalvars.default_tags
 }

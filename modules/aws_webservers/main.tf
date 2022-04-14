@@ -54,6 +54,55 @@ resource "aws_lb_target_group" "tg" {
   )
 }
 
+resource "aws_launch_template" "launch_template" {
+  name   = "launch_template"
+  image_id      = data.aws_ami.latest_amazon_linux.id
+  instance_type = var.instance_type
+  key_name = aws_key_pair.linux_key.key_name
+  vpc_security_group_ids = [aws_security_group.web_sg.id]
+  #subnet_id = data.terraform_remote_state.network.outputs.private_subnet_ids[count.index]
+  user_data = filebase64("${path.module}/install_httpd.sh.tpl"
+  )
+  tags = merge(local.default_tags,
+    {
+      "Name" = "${local.name_prefix}-launch-template"
+    }
+  )
+}
+
+resource "aws_autoscaling_group" "asg" {
+  name = "asg"
+  vpc_zone_identifier = [data.terraform_remote_state.network.outputs.private_subnet_ids[0], data.terraform_remote_state.network.outputs.private_subnet_ids[1], data.terraform_remote_state.network.outputs.private_subnet_ids[2]]
+  #target_group_arns =  aws_lb_target_group.tg.id
+  desired_capacity   = var.desired_capacity
+  max_size           = var.max_size
+  min_size           = var.min_size
+  health_check_grace_period = 300
+  health_check_type         = "ELB"
+
+  launch_template {
+    id      = aws_launch_template.launch_template.id
+    version = "$Latest"
+  }
+  
+  tag {
+    key                 = "Name"
+    value               = "${local.name_prefix}-asg-instance"
+    propagate_at_launch = true
+  }
+  
+  dynamic "tag" {
+    for_each = local.default_tags
+    content {
+      key                 = tag.key
+      value               = tag.value
+      propagate_at_launch = true
+    }
+  }
+  
+}
+
+
 # Create application load balancer
 resource "aws_lb" "lb" {
   name               = "lb"
@@ -113,61 +162,62 @@ resource "aws_security_group" "lb_sg" {
   )
 }
 
-
-resource "aws_launch_template" "launch_template" {
-  name   = "launch_template"
-  image_id      = data.aws_ami.latest_amazon_linux.id
-  instance_type = var.instance_type
-  key_name = aws_key_pair.linux_key.key_name
-  vpc_security_group_ids = [aws_security_group.web_sg.id]
-  #subnet_id = data.terraform_remote_state.network.outputs.private_subnet_ids[count.index]
-  user_data = filebase64("${path.module}/install_httpd.sh.tpl"
-  )
-  tags = merge(local.default_tags,
-    {
-      "Name" = "${local.name_prefix}-launch-template"
-    }
-  )
-}
-
-resource "aws_autoscaling_group" "asg" {
-  name = "asg"
-  vpc_zone_identifier = [data.terraform_remote_state.network.outputs.private_subnet_ids[0], data.terraform_remote_state.network.outputs.private_subnet_ids[1], data.terraform_remote_state.network.outputs.private_subnet_ids[2]]
-  #target_group_arns =  aws_lb_target_group.tg.id
-  desired_capacity   = var.desired_capacity
-  max_size           = var.max_size
-  min_size           = var.min_size
-  health_check_grace_period = 300
-  health_check_type         = "ELB"
-
-  launch_template {
-    id      = aws_launch_template.launch_template.id
-    version = "$Latest"
-  }
-  
-  tag {
-    key                 = "Name"
-    value               = "${local.name_prefix}-asg-instance"
-    propagate_at_launch = true
-  }
-  
-  dynamic "tag" {
-    for_each = local.default_tags
-    content {
-      key                 = tag.key
-      value               = tag.value
-      propagate_at_launch = true
-    }
-  }
-  
-}
-
 # Create a new ALB Target Group attachment
 resource "aws_autoscaling_attachment" "asg_attachment" {
   autoscaling_group_name = aws_autoscaling_group.asg.id
   lb_target_group_arn    = aws_lb_target_group.tg.arn
 }
 
+#Create Scaling policy 
+resource "aws_autoscaling_policy" "scale_down" {
+  name                   = "${local.name_prefix}_scale_down"
+  autoscaling_group_name = aws_autoscaling_group.asg.name
+  adjustment_type        = "ChangeInCapacity"
+  scaling_adjustment     = -1
+  cooldown               = 120
+}
+
+resource "aws_cloudwatch_metric_alarm" "scale_down" {
+  alarm_description   = "Monitors CPU utilization for ASG"
+  alarm_actions       = [aws_autoscaling_policy.scale_down.arn]
+  alarm_name          = "${local.name_prefix}_scale_down"
+  comparison_operator = "LessThanOrEqualToThreshold"
+  namespace           = "AWS/EC2"
+  metric_name         = "CPUUtilization"
+  threshold           = "5"
+  evaluation_periods  = "2"
+  period              = "120"
+  statistic           = "Average"
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.asg.name
+  }
+}
+
+resource "aws_autoscaling_policy" "scale_up" {
+  name                   = "${local.name_prefix}_scale_up"
+  autoscaling_group_name = aws_autoscaling_group.asg.name
+  adjustment_type        = "ChangeInCapacity"
+  scaling_adjustment     = 1
+  cooldown               = 120
+}
+
+resource "aws_cloudwatch_metric_alarm" "scale_up" {
+  alarm_description   = "Monitors CPU utilization for ASG"
+  alarm_actions       = [aws_autoscaling_policy.scale_up.arn]
+  alarm_name          = "${local.name_prefix}_scale_up"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  namespace           = "AWS/EC2"
+  metric_name         = "CPUUtilization"
+  threshold           = "10"
+  evaluation_periods  = "2"
+  period              = "120"
+  statistic           = "Average"
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.asg.name
+  }
+}
 
 # Provision SSH key pair for Ubuntu and AmazonLinux VMs
 resource "aws_key_pair" "linux_key" {

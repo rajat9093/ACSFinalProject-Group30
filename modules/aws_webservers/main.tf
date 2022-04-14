@@ -54,6 +54,55 @@ resource "aws_lb_target_group" "tg" {
   )
 }
 
+resource "aws_launch_template" "launch_template" {
+  name   = "launch_template"
+  image_id      = data.aws_ami.latest_amazon_linux.id
+  instance_type = var.instance_type
+  key_name = aws_key_pair.linux_key.key_name
+  vpc_security_group_ids = [aws_security_group.web_sg.id]
+  #subnet_id = data.terraform_remote_state.network.outputs.private_subnet_ids[count.index]
+  user_data = filebase64("${path.module}/install_httpd.sh.tpl"
+  )
+  tags = merge(local.default_tags,
+    {
+      "Name" = "${local.name_prefix}-launch-template"
+    }
+  )
+}
+
+resource "aws_autoscaling_group" "asg" {
+  name = "asg"
+  vpc_zone_identifier = [data.terraform_remote_state.network.outputs.private_subnet_ids[0], data.terraform_remote_state.network.outputs.private_subnet_ids[1], data.terraform_remote_state.network.outputs.private_subnet_ids[2]]
+  #target_group_arns =  aws_lb_target_group.tg.id
+  desired_capacity   = var.desired_capacity
+  max_size           = var.max_size
+  min_size           = var.min_size
+  health_check_grace_period = 300
+  health_check_type         = "ELB"
+
+  launch_template {
+    id      = aws_launch_template.launch_template.id
+    version = "$Latest"
+  }
+  
+  tag {
+    key                 = "Name"
+    value               = "${local.name_prefix}-asg-instance"
+    propagate_at_launch = true
+  }
+  
+  dynamic "tag" {
+    for_each = local.default_tags
+    content {
+      key                 = tag.key
+      value               = tag.value
+      propagate_at_launch = true
+    }
+  }
+  
+}
+
+
 # Create application load balancer
 resource "aws_lb" "lb" {
   name               = "lb"
@@ -111,55 +160,6 @@ resource "aws_security_group" "lb_sg" {
       "Name" = "${local.name_prefix}-lb-sg"
     }
   )
-}
-
-
-resource "aws_launch_template" "launch_template" {
-  name   = "launch_template"
-  image_id      = data.aws_ami.latest_amazon_linux.id
-  instance_type = var.instance_type
-  key_name = aws_key_pair.linux_key.key_name
-  vpc_security_group_ids = [aws_security_group.web_sg.id]
-  #subnet_id = data.terraform_remote_state.network.outputs.private_subnet_ids[count.index]
-  user_data = filebase64("${path.module}/install_httpd.sh.tpl"
-  )
-  tags = merge(local.default_tags,
-    {
-      "Name" = "${local.name_prefix}-launch-template"
-    }
-  )
-}
-
-resource "aws_autoscaling_group" "asg" {
-  name = "asg"
-  vpc_zone_identifier = [data.terraform_remote_state.network.outputs.private_subnet_ids[0], data.terraform_remote_state.network.outputs.private_subnet_ids[1], data.terraform_remote_state.network.outputs.private_subnet_ids[2]]
-  #target_group_arns =  aws_lb_target_group.tg.id
-  desired_capacity   = var.desired_capacity
-  max_size           = var.max_size
-  min_size           = var.min_size
-  health_check_grace_period = 300
-  health_check_type         = "ELB"
-
-  launch_template {
-    id      = aws_launch_template.launch_template.id
-    version = "$Latest"
-  }
-  
-  tag {
-    key                 = "Name"
-    value               = "${local.name_prefix}-asg-instance"
-    propagate_at_launch = true
-  }
-  
-  dynamic "tag" {
-    for_each = local.default_tags
-    content {
-      key                 = tag.key
-      value               = tag.value
-      propagate_at_launch = true
-    }
-  }
-  
 }
 
 # Create a new ALB Target Group attachment

@@ -28,7 +28,7 @@ variable "my_public_ip" {
 
 
 variable "min_size" {
-  default = 2
+  default = 1
 }
 
 variable "max_size" {

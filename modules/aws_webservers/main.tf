@@ -60,6 +60,9 @@ resource "aws_launch_template" "launch_template" {
   instance_type = var.instance_type
   key_name = aws_key_pair.linux_key.key_name
   vpc_security_group_ids = [aws_security_group.web_sg.id]
+  # iam_instance_profile {
+  #   arn  = "arn:aws:iam::957993417812:instance-profile/LabInstanceProfile"
+  # }
   #subnet_id = data.terraform_remote_state.network.outputs.private_subnet_ids[count.index]
   user_data = filebase64("${path.module}/install_httpd.sh.tpl"
   )

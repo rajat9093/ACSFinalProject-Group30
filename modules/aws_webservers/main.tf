@@ -54,12 +54,66 @@ resource "aws_lb_target_group" "tg" {
   )
 }
 
+
+# resource "aws_iam_role" "s3_access_role" {
+#   name = "s3_access_role"
+
+# assume_role_policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [
+#       {
+#         Action = "sts:AssumeRole"
+#         Effect = "Allow"
+#         Sid    = ""
+#         Principal = {
+#           Service = "ec2.amazonaws.com"
+#         }
+#       },
+#     ]
+#   })
+#   tags = merge(local.default_tags,
+#     {
+#       "Name" = "${local.name_prefix}-iam-role"
+#     }
+#   )
+# }
+
+# resource "aws_iam_instance_profile" "s3_access_profile" {
+#   name = "s3_access_profile"
+#   role = aws_iam_role.s3_access_role.name
+# }
+
+
+# resource "aws_iam_role_policy" "s3_access_policy" {
+#   name = "s3_access_policy"
+#   role = aws_iam_role.s3_access_role.id
+
+#   policy = <<EOF
+# {
+#   "Version": "2012-10-17",
+#   "Statement": [
+#     {
+#       "Action": [
+#         "s3:*"
+#       ],
+#       "Effect": "Allow",
+#       "Resource": "*"
+#     }
+#   ]
+# }
+# EOF
+# }
+
+
 resource "aws_launch_template" "launch_template" {
   name   = "launch_template"
   image_id      = data.aws_ami.latest_amazon_linux.id
   instance_type = var.instance_type
   key_name = aws_key_pair.linux_key.key_name
   vpc_security_group_ids = [aws_security_group.web_sg.id]
+  # iam_instance_profile {
+  #   arn  = "arn:aws:iam::957993417812:instance-profile/LabInstanceProfile"
+  # }
   #subnet_id = data.terraform_remote_state.network.outputs.private_subnet_ids[count.index]
   user_data = filebase64("${path.module}/install_httpd.sh.tpl"
   )

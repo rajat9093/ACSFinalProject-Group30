@@ -2,7 +2,7 @@
 variable "instance_type" {
   default     = "t3.medium"
   description = "Type of the instance"
-  type        = map(string)
+  type        = string
 }
 
 # Variable to signal the current environment 
@@ -14,14 +14,14 @@ variable "env" {
 
 #Private Ip of the Admin
 variable "my_private_ip" {
-  default     = "172.31.11.211"
+  default     = "172.31.55.33"
   type        = string
   description = "Private IP of the Admin"
 }
 
 #Public Ip of the Admin
 variable "my_public_ip" {
-  default     = "44.200.61.198"
+  default     = "100.25.199.148"
   type        = string
   description = "Public IP of the Admin"
 }

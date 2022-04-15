@@ -17,7 +17,7 @@ data "aws_ami" "latest_amazon_linux" {
 data "terraform_remote_state" "network" { // This is to use Outputs from Remote State
   backend = "s3"
   config = {
-    bucket = "group30-${var.env}-bucket"  // Bucket from where to GET Terraform State
+    bucket = "group30-bucket-${var.env}"  // Bucket from where to GET Terraform State
     key    = "${var.env}-network/terraform.tfstate" // Object name in the bucket to GET Terraform State
     region = "us-east-1"                            // Region where bucket created
   }
@@ -42,7 +42,7 @@ module "globalvars" {
 
 # Create Target group
 resource "aws_lb_target_group" "tg" {
-  name     = "tg"
+  name     = "tg-${var.env}"
   port     = 80
   protocol = "HTTP"
   vpc_id   = data.terraform_remote_state.network.outputs.vpc_id
@@ -55,66 +55,15 @@ resource "aws_lb_target_group" "tg" {
 }
 
 
-# resource "aws_iam_role" "s3_access_role" {
-#   name = "s3_access_role"
-
-# assume_role_policy = jsonencode({
-#     Version = "2012-10-17"
-#     Statement = [
-#       {
-#         Action = "sts:AssumeRole"
-#         Effect = "Allow"
-#         Sid    = ""
-#         Principal = {
-#           Service = "ec2.amazonaws.com"
-#         }
-#       },
-#     ]
-#   })
-#   tags = merge(local.default_tags,
-#     {
-#       "Name" = "${local.name_prefix}-iam-role"
-#     }
-#   )
-# }
-
-# resource "aws_iam_instance_profile" "s3_access_profile" {
-#   name = "s3_access_profile"
-#   role = aws_iam_role.s3_access_role.name
-# }
-
-
-# resource "aws_iam_role_policy" "s3_access_policy" {
-#   name = "s3_access_policy"
-#   role = aws_iam_role.s3_access_role.id
-
-#   policy = <<EOF
-# {
-#   "Version": "2012-10-17",
-#   "Statement": [
-#     {
-#       "Action": [
-#         "s3:*"
-#       ],
-#       "Effect": "Allow",
-#       "Resource": "*"
-#     }
-#   ]
-# }
-# EOF
-# }
-
-
 resource "aws_launch_template" "launch_template" {
-  name   = "launch_template"
+  name   = "launch_template-${var.env}"
   image_id      = data.aws_ami.latest_amazon_linux.id
   instance_type = var.instance_type
   key_name = aws_key_pair.linux_key.key_name
   vpc_security_group_ids = [aws_security_group.web_sg.id]
-  # iam_instance_profile {
-  #   arn  = "arn:aws:iam::957993417812:instance-profile/LabInstanceProfile"
-  # }
-  #subnet_id = data.terraform_remote_state.network.outputs.private_subnet_ids[count.index]
+  iam_instance_profile {
+    name = "LabInstanceProfile"
+  }
   user_data = filebase64("${path.module}/install_httpd.sh.tpl"
   )
   tags = merge(local.default_tags,
@@ -125,9 +74,8 @@ resource "aws_launch_template" "launch_template" {
 }
 
 resource "aws_autoscaling_group" "asg" {
-  name = "asg"
+  name = "asg-${var.env}"
   vpc_zone_identifier = [data.terraform_remote_state.network.outputs.private_subnet_ids[0], data.terraform_remote_state.network.outputs.private_subnet_ids[1], data.terraform_remote_state.network.outputs.private_subnet_ids[2]]
-  #target_group_arns =  aws_lb_target_group.tg.id
   desired_capacity   = var.desired_capacity
   max_size           = var.max_size
   min_size           = var.min_size
@@ -159,12 +107,11 @@ resource "aws_autoscaling_group" "asg" {
 
 # Create application load balancer
 resource "aws_lb" "lb" {
-  name               = "lb"
+  name               = "lb-${var.env}"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.lb_sg.id]
   subnets            = [data.terraform_remote_state.network.outputs.public_subnet_ids[0], data.terraform_remote_state.network.outputs.public_subnet_ids[1], data.terraform_remote_state.network.outputs.public_subnet_ids[2]]
-
   enable_deletion_protection = false
 
   tags = merge(local.default_tags,
@@ -275,7 +222,7 @@ resource "aws_cloudwatch_metric_alarm" "scale_up" {
 
 # Provision SSH key pair for Ubuntu and AmazonLinux VMs
 resource "aws_key_pair" "linux_key" {
-  key_name   = "linux_key"
+  key_name   = "linux_key-${var.env}"
   public_key = file(var.path_to_linux_key)
   tags = merge({
     Name = "${local.prefix}-keypair"

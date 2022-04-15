@@ -21,7 +21,7 @@ variable "my_private_ip" {
 
 #Public Ip of the Admin
 variable "my_public_ip" {
-  default     = "100.25.3.82"
+  default     = "100.25.199.148"
   type        = string
   description = "Public IP of the Admin"
 }

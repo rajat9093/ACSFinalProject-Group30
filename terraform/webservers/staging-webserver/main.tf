@@ -1,7 +1,7 @@
 
 # Module to deploy basic networking 
-module "vpc-staging" {
-  source = "../../../modules/aws_network"
+module "webservers-staging" {
+  source = "../../../modules/aws_webservers"
   env               = var.env
   instance_type     = var.instance_type
   my_private_ip     = var.my_private_ip

@@ -84,6 +84,26 @@ resource "aws_lb_target_group" "tg" {
 # }
 
 
+# resource "aws_iam_role_policy" "s3_access_policy" {
+#   name = "s3_access_policy"
+#   role = aws_iam_role.s3_access_role.id
+
+#   policy = <<EOF
+# {
+#   "Version": "2012-10-17",
+#   "Statement": [
+#     {
+#       "Action": [
+#         "s3:*"
+#       ],
+#       "Effect": "Allow",
+#       "Resource": "*"
+#     }
+#   ]
+# }
+# EOF
+# }
+
 
 resource "aws_launch_template" "launch_template" {
   name   = "launch_template"

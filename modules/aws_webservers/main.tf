@@ -78,6 +78,12 @@ resource "aws_lb_target_group" "tg" {
 #   )
 # }
 
+# resource "aws_iam_instance_profile" "s3_access_profile" {
+#   name = "s3_access_profile"
+#   role = aws_iam_role.s3_access_role.name
+# }
+
+
 
 resource "aws_launch_template" "launch_template" {
   name   = "launch_template"

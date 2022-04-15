@@ -54,6 +54,25 @@ resource "aws_lb_target_group" "tg" {
   )
 }
 
+
+# resource "aws_iam_role" "s3_access_role" {
+#   name = "s3_access_role"
+
+# assume_role_policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [
+#       {
+#         Action = "sts:AssumeRole"
+#         Effect = "Allow"
+#         Sid    = ""
+#         Principal = {
+#           Service = "ec2.amazonaws.com"
+#         }
+#       },
+#     ]
+#   })
+
+
 resource "aws_launch_template" "launch_template" {
   name   = "launch_template"
   image_id      = data.aws_ami.latest_amazon_linux.id

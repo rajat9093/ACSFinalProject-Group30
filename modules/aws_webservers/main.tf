@@ -71,6 +71,12 @@ resource "aws_lb_target_group" "tg" {
 #       },
 #     ]
 #   })
+#   tags = merge(local.default_tags,
+#     {
+#       "Name" = "${local.name_prefix}-iam-role"
+#     }
+#   )
+# }
 
 
 resource "aws_launch_template" "launch_template" {

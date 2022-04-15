@@ -6,3 +6,4 @@ sudo aws s3 cp s3://images-bucket-group30/ /var/www/html --recursive
 echo "<h1>Welcome to ACS730 ${prefix} webserver deployed by Rajat Garg, Tirth Patel, Dipen Parihar and Rinkesh Patel! My private IP is $myip in ${env} environment</font></h1><br>Built by Group30! <img src="newr.jpg" alt="first"> <br> <img src="sac.jpg" alt="second">" > /var/www/html/index.html
 sudo systemctl start httpd
 sudo systemctl enable httpd
+
